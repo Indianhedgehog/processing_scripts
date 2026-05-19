@@ -2,7 +2,11 @@
 ## The SV data was copied in a  local folder because of the convineince and the 
 # to avoid writing unnecessary codes. The old code bloackhave been commented out 
 # so that it can used later if required . The CN data is being read from the Robject.
-# The ID's are then finally being used for matching the CN and SV names and do the core analysis .
+# The ID's are then finally being used for matching the CN and SV names and do the core analysis.
+
+## At present the inversion cannot be subclassified into head and tail because of the way the data is being processed. 
+#The strand information is being extracted from the source column in the SV file. This is not ideal but it is a workaround for now. 
+#The code can be modified later to extract the strand information from the VCF file if required.
 
 suppressMessages(library(ShatterSeek))
 suppressMessages(library(dplyr))
@@ -13,19 +17,16 @@ suppressMessages(library(readr))
 suppressMessages(library(MultiAssayExperiment))
 suppressMessages(library(RaggedExperiment))
 suppressMessages(library(data.table))
-library(gridExtra)
-library(cowplot)
-library(qs)
-library(ggplot2)
-
-#setwd("/omics/odcf/project/hipo/hipo_021/sequencing/whole_genome_sequencing/view-by-pid")
-#setwd("/omics/odcf/project/OE0246/chordoma-multiomes/sequencing/whole_genome_sequencing/view-by-pid")
+suppressMessages(library(gridExtra))
+suppressMessages(library(cowplot))
+suppressMessages(library(qs))
+suppressMessages(library(ggplot2))
 
 #---------  SV data proicessing ---------#
 
-setwd("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/sv_files")
+setwd("/path/to/data/sv_files")
 
-sample_file <- read_tsv("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/cna_sv_path.tsv")
+sample_file <- read_tsv("/path/to/data/cna_sv_path.tsv")
 sample_file$full_pid <- paste0(sample_file$pid,"_", sample_file$tumor_control)
 
 filenames_sv <- tibble(filenames = list.files(".", pattern = "svs_.*_filtered_dedup_somatic\\.tsv$"))
@@ -49,7 +50,7 @@ uk$full_pid  <- gsub("-", "_", uk$full_pid)
 
 
 filenames_sv <- rbind(hipo21 ,uk)
-filenames_sv$filenames <- paste0("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/sv_files/",filenames_sv$filenames)
+filenames_sv$filenames <- paste0("/path/to/data/sv_files/",filenames_sv$filenames)
 
 sample_selection <- qread("../sample_selection_corrected.qs")
 sample_selection$full_pid <- paste0(sample_selection$ProjectID,"_", sample_selection$PatientID,"_",sample_selection$TumorID,"_", sample_selection$ControlID)
@@ -58,8 +59,8 @@ final_samples<- sample_selection %>% filter(full_pid %in% filenames_sv$full_pid)
 
 
 #---------- CNA data ---------------#
-load("/omics/odcf/analysis/hipo/hipo_021/results_per_pid_masterReprocessing/data/annotations/gencode19_gns_lite.RData")
-load("/omics/odcf/analysis/OE0246_projects/chordoma-multiomes/dataChordoma_processing/object/dataCHORDOMA_dataMASTER_250828.RData")
+load("/path/to/data/annotations/gencode19_gns_lite.RData")
+load("/path/to/data/objects/dataCHORDOMA_dataMASTER_250828.RData")
 colData <- as.data.frame(colData(dataCHORDOMA))
 smpls <- rownames(colData)
 
@@ -82,7 +83,7 @@ latest_data <- latest_data[order(latest_data$id), ]
 #---    Core fucntion of the shatterseek analysis. ------#
 
 valid_chroms <- c(as.character(1:22), "X")
-output_dir <- "/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/ShatterSeek"
+output_dir <- "/path/to/output/shatterseek_results"
 
 
 for (i in seq_along(latest_data$filenames)) {
@@ -189,7 +190,7 @@ for (i in seq_along(latest_data$filenames)) {
 
 
 ##plotting the data 
-data_dir <- "/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/ShatterSeek/"
+data_dir <- "/path/to/output/shatterseek_results/"
 file_list <- list.files(path = data_dir, pattern = "\\.chr_txt$", full.names = TRUE)
 
 
@@ -256,179 +257,6 @@ print(p)
 dev.off()
 
 
-# get_filenames <- function(dirs, pattern = NULL) {
-#   unlist(lapply(dirs, 
-#                 function(dir) {
-#                   list.files(path = dir, 
-#                            pattern = pattern, 
-#                            recursive = TRUE, 
-#                            full.names = TRUE)
-#                 }), 
-#          use.names = FALSE)
-#  #   unique()
-# }
-
-# # Usage
-
-#filenames_sv <- tibble(filenames = get_filenames(sample_file$pid, pattern = "svs_.*_filtered_dedup_somatic\\.tsv$"))
-
-# filenames_sv$tumor_control <- sapply(strsplit(filenames_sv$filenames, "/"), "[", 4)
-# filenames_sv$versions <- sapply(strsplit(filenames_sv$filenames, "/"), "[", 5)
-
-# filenames_sv$pid <- sapply(strsplit(filenames_sv$filenames, "/"), "[", 1)
-# filenames_sv$full_pid <- paste0(filenames_sv$pid, "_",filenames_sv$tumor_control)
-# filenames_sv$filenames <- paste0("/omics/odcf/project/OE0246/chordoma-multiomes/sequencing/whole_genome_sequencing/view-by-pid/",filenames_sv$filenames)
-#filenames_sv$filenames <- paste0("/omics/odcf/project/hipo/hipo_021/sequencing/whole_genome_sequencing/view-by-pid/",filenames_sv$filenames)
-#/omics/odcf/project/OE0246/chordoma-multiomes/sequencing/whole_genome_sequencing/view-by-pid
-
-
-# latest_data <- filenames_sv %>%
-#   mutate(timestamp = str_extract(versions, "\\d{4}-\\d{2}-\\d{2}_\\d{2}h\\d{2}")) %>%
-#   group_by(full_pid) %>% 
-#   slice_max(timestamp, n = 1, with_ties = FALSE) %>%
-#   select(-timestamp) %>%
-#   ungroup()
-# filenames_cna <- tibble(filenames = get_filenames(sample_file$pid, pattern = "*_comb_pro_extra*"))
-
-##some samples have been mis-labelled. This above steps needs to be rerun again 
-##only applies to UK samples
-# mis_labled_samples <- tibble(samples = sample_file$pid[ !(sample_file$full_pid %in% latest_data$full_pid) ])
-# mis_labled_samples  <- mis_labled_samples %>% filter(grepl("OE0246", samples))
-
-# sample_file$pid <- ifelse(
-#   sample_file$pid %in% mis_labled_samples$samples,
-#   gsub("33-", "", sample_file$pid),
-#   sample_file$pid
-# )
-
-
-
-# filenames_sv$tumor_control <- sapply(strsplit(filenames_sv$filenames, "_"), "[", 3)
-# filenames_sv$full_pid <- paste0(filenames_sv$pid, "_",filenames_sv$tumor_control)
-# filenames_sv$full_pid  <- gsub("-", "_", filenames_sv$full_pid)
-
-
-
-# filenames_sv$filenames <- ifelse(
-#   grepl("OE0246", filenames_sv$full_pid), 
-#   paste0("/omics/odcf/project/OE0246/chordoma-multiomes/sequencing/whole_genome_sequencing/view-by-pid/", filenames_sv$filenames), 
-#   paste0("/omics/odcf/project/hipo/hipo_021/sequencing/whole_genome_sequencing/view-by-pid/", filenames_sv$filenames)
-# )
-
-# latest_data <- filenames_sv %>%
-#   mutate(timestamp = str_extract(versions, "\\d{4}-\\d{2}-\\d{2}_\\d{2}h\\d{2}")) %>%
-#   group_by(full_pid) %>% 
-#   slice_max(timestamp, n = 1, with_ties = FALSE) %>%
-#   select(-timestamp) %>%
-#   ungroup()
-
-
-# filenames_cna <- filenames_cna %>%
-#   filter(samples %in% sample_file$cna)
-
-# filenames_cna$tumor_control <- sapply(strsplit(filenames_cna$filenames, "/"), "[", 4)
-# filenames_cna$pid <- sapply(strsplit(filenames_cna$filenames, "/"), "[", 1)
-# filenames_cna$full_pid <- paste0(filenames_cna$pid, "_",filenames_cna$tumor_control)
-
-# load("/omics/odcf/analysis/hipo/hipo_021/results_per_pid_masterReprocessing/data/annotations/gencode19_gns_lite.RData")
-# load("/omics/odcf/analysis/OE0246_projects/chordoma-multiomes/dataChordoma_processing/object/dataCHORDOMA_dataMASTER_250828.RData")
-# colData <- as.data.frame(colData(dataCHORDOMA))
-# smpls <- rownames(colData)
-
-
-# # Load file with selected samples after QC from Gosia and Eva
-# sample_selection <- 
-#   read_tsv("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/RNA/analyses/oncoprint/chordoma.samples_251112_selection.tsv") %>%
-#   filter(SelectedSample)
-# sample_selection <- sample_selection %>% filter(TakeCNV)
-# sample_selection <- sample_selection %>% filter(!grepl("WES", ID))
-
-
-
-#mis_labled_samples$samples <- gsub("-", "_", mis_labled_samples$samples)
-
-#sample_selection$full_pid <- paste0(sample_selection$ProjectID,"_", sample_selection$PatientID,"_",sample_selection$TumorID,"_", sample_selection$ControlID)
-#sample_selection$pid <- paste0(sample_selection$ProjectID,"_", sample_selection$PatientID)
-
-#sample_selection$ProjectID <- ifelse(
-#  sample_selection$pid %in% mis_labled_samples$samples,
-#  gsub("_33", "", sample_selection$ProjectID),
-#  sample_selection$ProjectID
-#)
-#sample_selection$ProjectID <- gsub("-", "_", sample_selection$ProjectID)
-
-
-# #sample_selection$full_pid  <- gsub("-", "_", sample_selection$full_pid )
-# latest_data$full_pid  <- gsub("-", "_", latest_data$full_pid)
-
-
-
-
-#sample_selection$full_pid[ !(sample_selection$full_pid %in% final_samples$full_pid) ]
-#qsave(, "/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/uk_samples_svs.qs")
-#dnaSmpls <- sample_selection %>% filter(TakeDNA)
-
-#rnaSmpls <- sample_selection %>% filter(TakeRNA)
-#latest_data$full_pid[ !(latest_data$full_pid %in% sample_selection$full_pid) ]
-
-# hipocna <- qread("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/hipo021_svs.qs")
-# ukcna <- qread("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/uk_samples_svs.qs")
-
-# final_cna <- rbind(hipocna,ukcna)
-
-# #hipo21_samples <- qsave(latest_data,"/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/uksv.qs")
-# #uk_samples <- qsave(latest_data,"/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/hiposv.qs")
-
-# hipo021_samples <- qread("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/uksv.qs")
-# uk_samples <- qread("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/scripts_and_files/hiposv.qs")
-
-# all_samples <- rbind(hipo021_samples,uk_samples)
-# all_samples$id <- final_cna$ID[all_samples$full_pid %in% all_samples$full_pid]
-# all_samples <- all_samples[order(all_samples$id), ]
-#final_samples <- final_samples %>% filter(!pid %in% c("OE0246_Chordoma_Multiomes_33_006", "OE0246_Chordoma_Multiomes_33_005"))
-
-
-
-#problematic samples
-#latest_data <- latest_data %>% filter(!pid %in% c("OE0246_Chordoma_Multiomes_33-006", "OE0246_Chordoma_Multiomes_33-005"))
-
-
-
-
-# cohortSV <- dataCHORDOMA[,smplsCN,"sv"]
-# cohortSV <- as(cohortSV[["sv"]], "GRangesList")
-
-# sv <- as.data.frame(cohortSV)
-# sv <- sv %>% filter(!grepl("WES", group_name))
-
-# sv_list <- split(sv, sv$group_name)
-
-
-
-
-# vcf <- VariantAnnotation::readVcf("H028-F6GWVF_control_tumor.somatic.vcf.pass.vcf.gz")
-# gr <- c(breakpointRanges(vcf), breakendRanges(vcf))
-# 
-# gr2 <- breakpointRanges(vcf)
-# 
-# 
-# SV_data <- SVs(chrom1=as.character(SV_DO17373$chrom1), 
-#                pos1=as.numeric(SV_DO17373$start1),
-#                chrom2=as.character(SV_DO17373$chrom2), 
-#                pos2=as.numeric(SV_DO17373$end2),
-#                SVtype=as.character(SV_DO17373$svclass), 
-#                strand1=as.character(SV_DO17373$strand1),
-#                strand2=as.character(SV_DO17373$strand2))
-# 
-# CN_data <- CNVsegs(chrom=as.character(SCNA_DO17373$chromosome),
-#                    start=SCNA_DO17373$start,
-#                    end=SCNA_DO17373$end,
-#                    total_cn=SCNA_DO17373$total_cn)
-# chromothripsis <- shatterseek(
-#   SV.sample=SV_data,
-#   seg.sample=CN_data,
-#   genome="hg19"
-
 #-------------  Chromothripsis plot  ---------- #
 
 
@@ -466,7 +294,7 @@ plot_chromothripsis_grid <- function(
 }
 
 
-setwd("/omics/odcf/analysis/hipo/hipo_021/Rhode/chordoma_analysis/multiomes/hrd/")
+setwd("/path/to/output/hrd/")
 chromothripsis <- qread("ShatterSeek/analysis_output /svs_H021-5MKAFL_tumor-buffy_coat02_filtered_dedup_somatic.qs")
 # Your original two-chromosome case
 p <- plot_chromothripsis_grid(
